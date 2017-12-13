@@ -15,6 +15,43 @@ import (
 	"net/http"
 )
 
+func do_ocsp(ocsp_req_bytes []byte, ocsp_url string, issuer *x509.Certificate) string {
+	req, err := http.NewRequest("POST", ocsp_url, bytes.NewReader(ocsp_req_bytes))
+	if err != nil {
+		return fmt.Sprintf("%v", err)
+	}
+	req.Header.Set("Content-Type", "application/ocsp-request")
+	req.Header.Set("Connection", "close")
+	http_client := &http.Client{}
+	resp, err := http_client.Do(req)
+	if err != nil && resp == nil {
+		return fmt.Sprintf("%v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Sprintf("%v", err)
+	}
+
+	ocsp_resp, err := ocsp.ParseResponse(body, issuer)
+	if err != nil {
+		if resp.StatusCode != 200 {
+			return fmt.Sprintf("HTTP %d", resp.StatusCode);
+		} else {
+			return fmt.Sprintf("%v", err)
+		}
+	}
+
+	if ocsp_resp.Status == ocsp.Good {
+		return "Good"
+	} else if ocsp_resp.Status == ocsp.Unknown {
+		return "Unknown"
+	} else {
+		return fmt.Sprintf("Revoked|%v|%d", ocsp_resp.RevokedAt, ocsp_resp.RevocationReason)
+	}
+}
+
 func Ocsp_check(b64_cert string, b64_issuer string) string {
 	der_cert, err := base64.StdEncoding.DecodeString(b64_cert)
 	if err != nil {
@@ -42,35 +79,8 @@ func Ocsp_check(b64_cert string, b64_issuer string) string {
 	if err != nil {
 		return fmt.Sprintf("%v", err)
 	}
-	req, err := http.NewRequest("POST", cert.OCSPServer[0], bytes.NewReader(ocsp_req))
-	if err != nil {
-		return fmt.Sprintf("%v", err)
-	}
-	req.Header.Set("Content-Type", "application/ocsp-request")
-	http_client := &http.Client{}
-	resp, err := http_client.Do(req)
-	if err != nil && resp == nil {
-		return fmt.Sprintf("%v", err)
-	}
-	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Sprintf("%v", err)
-	}
-
-	ocsp_resp, err := ocsp.ParseResponse(body, issuer)
-	if err != nil {
-		return fmt.Sprintf("%v", err)
-	}
-
-	if ocsp_resp.Status == ocsp.Good {
-		return "Good"
-	} else if ocsp_resp.Status == ocsp.Unknown {
-		return "Unknown"
-	} else {
-		return fmt.Sprintf("Revoked|%v|%d", ocsp_resp.RevokedAt, ocsp_resp.RevocationReason)
-	}
+	return do_ocsp(ocsp_req, cert.OCSPServer[0], issuer)
 }
 
 func Ocsp_randomserial_check(b64_issuer string, ocsp_url string) string {
@@ -114,33 +124,5 @@ func Ocsp_randomserial_check(b64_issuer string, ocsp_url string) string {
 		return fmt.Sprintf("%v", err)
 	}
 
-	req, err := http.NewRequest("POST", ocsp_url, bytes.NewReader(ocsp_req_bytes))
-	if err != nil {
-		return fmt.Sprintf("%v", err)
-	}
-	req.Header.Set("Content-Type", "application/ocsp-request")
-	http_client := &http.Client{}
-	resp, err := http_client.Do(req)
-	if err != nil && resp == nil {
-		return fmt.Sprintf("%v", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Sprintf("%v", err)
-	}
-
-	ocsp_resp, err := ocsp.ParseResponse(body, issuer)
-	if err != nil {
-		return fmt.Sprintf("%v", err)
-	}
-
-	if ocsp_resp.Status == ocsp.Good {
-		return "Good"
-	} else if ocsp_resp.Status == ocsp.Unknown {
-		return "Unknown"
-	} else {
-		return fmt.Sprintf("Revoked|%v|%d", ocsp_resp.RevokedAt, ocsp_resp.RevocationReason)
-	}
+	return do_ocsp(ocsp_req_bytes, ocsp_url, issuer)
 }
