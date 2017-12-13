@@ -10,7 +10,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"golang.org/x/crypto/ocsp"
-	"io"
+	"io/ioutil"
 	"math/big"
 	"net/http"
 )
@@ -49,15 +49,17 @@ func Ocsp_check(b64_cert string, b64_issuer string) string {
 	req.Header.Set("Content-Type", "application/ocsp-request")
 	http_client := &http.Client{}
 	resp, err := http_client.Do(req)
-	if err != nil {
+	if err != nil && resp == nil {
 		return fmt.Sprintf("%v", err)
 	}
 	defer resp.Body.Close()
 
-	buf := new(bytes.Buffer)
-	io.Copy(buf, resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Sprintf("%v", err)
+	}
 
-	ocsp_resp, err := ocsp.ParseResponse(buf.Bytes(), issuer)
+	ocsp_resp, err := ocsp.ParseResponse(body, issuer)
 	if err != nil {
 		return fmt.Sprintf("%v", err)
 	}
@@ -119,15 +121,17 @@ func Ocsp_randomserial_check(b64_issuer string, ocsp_url string) string {
 	req.Header.Set("Content-Type", "application/ocsp-request")
 	http_client := &http.Client{}
 	resp, err := http_client.Do(req)
-	if err != nil {
+	if err != nil && resp == nil {
 		return fmt.Sprintf("%v", err)
 	}
 	defer resp.Body.Close()
 
-	buf := new(bytes.Buffer)
-	io.Copy(buf, resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Sprintf("%v", err)
+	}
 
-	ocsp_resp, err := ocsp.ParseResponse(buf.Bytes(), issuer)
+	ocsp_resp, err := ocsp.ParseResponse(body, issuer)
 	if err != nil {
 		return fmt.Sprintf("%v", err)
 	}
