@@ -112,7 +112,8 @@ func Ocsp_randomserial_check(b64_issuer string, ocsp_url string) string {
 	ocsp_req.IssuerNameHash = h.Sum(nil)
 
 	random_serial := [20]byte{}
-	_, err = rand.Read(random_serial[:])
+	copy(random_serial[:], "crt.sh")
+	_, err = rand.Read(random_serial[6:])
 	if err != nil {
 		return fmt.Sprintf("%v", err)
 	}
