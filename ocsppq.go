@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net/http"
+	"time"
 )
 
 func do_ocsp(ocsp_req_bytes []byte, ocsp_url string, issuer *x509.Certificate) string {
@@ -22,7 +23,7 @@ func do_ocsp(ocsp_req_bytes []byte, ocsp_url string, issuer *x509.Certificate) s
 	}
 	req.Header.Set("Content-Type", "application/ocsp-request")
 	req.Header.Set("Connection", "close")
-	http_client := &http.Client{}
+	http_client := &http.Client{Timeout: time.Second * 30}
 	resp, err := http_client.Do(req)
 	if err != nil && resp == nil {
 		return fmt.Sprintf("%v", err)
