@@ -74,29 +74,29 @@ func do_ocsp(ocsp_req_bytes []byte, ocsp_url string, issuer *x509.Certificate) s
 func Ocsp_check(b64_cert string, b64_issuer string) string {
 	der_cert, err := base64.StdEncoding.DecodeString(b64_cert)
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("Error while base64 decoding EE cert|%v", err)
 	}
 	cert, err := x509.ParseCertificate(der_cert)
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("Error while parsing EE cert|%v", err)
 	}
 
 	der_issuer, err := base64.StdEncoding.DecodeString(b64_issuer)
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("Error while base64 decoding ICA cert|%v", err)
 	}
 	issuer, err := x509.ParseCertificate(der_issuer)
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("Error while parsing ICA cert|%v", err)
 	}
 
 	if len(cert.OCSPServer) == 0 {
-		return "No OCSP URL available"
+		return "No OCSP URL included in EE certificate"
 	}
 
 	ocsp_req, err := ocsp.CreateRequest(cert, issuer, nil)
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("Error while creating OCAP request|%v", err)
 	}
 
 	return do_ocsp(ocsp_req, cert.OCSPServer[0], issuer)
