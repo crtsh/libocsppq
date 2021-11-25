@@ -1,6 +1,6 @@
 /* libocsppq - perform OCSP checks from a PostgreSQL function
  * Written by Rob Stradling
- * Copyright (C) 2017-2020 Sectigo Limited
+ * Copyright (C) 2017-2021 Sectigo Limited
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"golang.org/x/crypto/ocsp"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"time"
@@ -37,20 +37,20 @@ import (
 func do_ocsp(ocsp_req_bytes []byte, ocsp_url string, issuer *x509.Certificate) string {
 	req, err := http.NewRequest("POST", ocsp_url, bytes.NewReader(ocsp_req_bytes))
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("http.NewRequest => %v", err)
 	}
 	req.Header.Set("Content-Type", "application/ocsp-request")
 	req.Header.Set("Connection", "close")
 	http_client := &http.Client{Timeout: time.Second * 30}
 	resp, err := http_client.Do(req)
 	if err != nil && resp == nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("http_client.Do => %v", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("io.ReadAll => %v", err)
 	}
 
 	ocsp_resp, err := ocsp.ParseResponse(body, issuer)
@@ -58,7 +58,7 @@ func do_ocsp(ocsp_req_bytes []byte, ocsp_url string, issuer *x509.Certificate) s
 		if resp.StatusCode != 200 {
 			return fmt.Sprintf("HTTP %d", resp.StatusCode);
 		} else {
-			return fmt.Sprintf("%v", err)
+			return fmt.Sprintf("ocsp.ParseResponse => %v", err)
 		}
 	}
 
@@ -74,20 +74,20 @@ func do_ocsp(ocsp_req_bytes []byte, ocsp_url string, issuer *x509.Certificate) s
 func Ocsp_check(b64_cert string, b64_issuer string) string {
 	der_cert, err := base64.StdEncoding.DecodeString(b64_cert)
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("base64.StdEncoding.DecodeString(b64_cert) => %v", err)
 	}
 	cert, err := x509.ParseCertificate(der_cert)
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("x509.ParseCertificate(der_cert) => %v", err)
 	}
 
 	der_issuer, err := base64.StdEncoding.DecodeString(b64_issuer)
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("base64.StdEncoding.DecodeString(b64_issuer) => %v", err)
 	}
 	issuer, err := x509.ParseCertificate(der_issuer)
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("x509.ParseCertificate(der_issuer) => %v", err)
 	}
 
 	if len(cert.OCSPServer) == 0 {
@@ -96,7 +96,7 @@ func Ocsp_check(b64_cert string, b64_issuer string) string {
 
 	ocsp_req, err := ocsp.CreateRequest(cert, issuer, nil)
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("ocsp.CreateRequest => %v", err)
 	}
 
 	return do_ocsp(ocsp_req, cert.OCSPServer[0], issuer)
@@ -105,11 +105,11 @@ func Ocsp_check(b64_cert string, b64_issuer string) string {
 func Ocsp_randomserial_check(b64_issuer string, ocsp_url string) string {
 	der_issuer, err := base64.StdEncoding.DecodeString(b64_issuer)
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("base64.StdEncoding.DecodeString(b64_issuer) => %v", err)
 	}
 	issuer, err := x509.ParseCertificate(der_issuer)
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("x509.ParseCertificate(der_issuer) => %v", err)
 	}
 
 	var publicKeyInfo struct {
@@ -117,7 +117,7 @@ func Ocsp_randomserial_check(b64_issuer string, ocsp_url string) string {
 		PublicKey asn1.BitString
 	}
 	if _, err := asn1.Unmarshal(issuer.RawSubjectPublicKeyInfo, &publicKeyInfo); err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("asn1.Unmarshal(issuer.RawSubjectPublicKeyInfo) => %v", err)
 	}
 
 	var ocsp_req ocsp.Request
@@ -134,14 +134,14 @@ func Ocsp_randomserial_check(b64_issuer string, ocsp_url string) string {
 	copy(random_serial[:], "crt.sh")
 	_, err = rand.Read(random_serial[6:])
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("rand.Read => %v", err)
 	}
 	ocsp_req.SerialNumber = big.NewInt(0)
 	ocsp_req.SerialNumber.SetBytes(random_serial[:])
 
 	ocsp_req_bytes, err := ocsp_req.Marshal()
 	if err != nil {
-		return fmt.Sprintf("%v", err)
+		return fmt.Sprintf("ocsp_req.Marshal => %v", err)
 	}
 
 	return do_ocsp(ocsp_req_bytes, ocsp_url, issuer)
