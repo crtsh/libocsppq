@@ -34,7 +34,7 @@ import (
 	"time"
 )
 
-func do_ocsp(ocsp_req_bytes []byte, ocsp_url string, issuer *x509.Certificate) string {
+func do_ocsp(ocsp_req_bytes []byte, ocsp_url string, cert *x509.Certificate, issuer *x509.Certificate) string {
 	req, err := http.NewRequest("POST", ocsp_url, bytes.NewReader(ocsp_req_bytes))
 	if err != nil {
 		return fmt.Sprintf("http.NewRequest => %v", err)
@@ -53,12 +53,20 @@ func do_ocsp(ocsp_req_bytes []byte, ocsp_url string, issuer *x509.Certificate) s
 		return fmt.Sprintf("io.ReadAll => %v", err)
 	}
 
-	ocsp_resp, err := ocsp.ParseResponse(body, issuer)
+	var ocsp_resp *ocsp.Response
+	parseFuncName := ""
+	if cert != nil {
+		ocsp_resp, err = ocsp.ParseResponseForCert(body, cert, issuer)
+		parseFuncName = "ocsp.ParseResponseForCert"
+	} else {
+		ocsp_resp, err = ocsp.ParseResponse(body, issuer)
+		parseFuncName = "ocsp.ParseResponse"
+	}
 	if err != nil {
 		if resp.StatusCode != 200 {
 			return fmt.Sprintf("HTTP %d", resp.StatusCode);
 		} else {
-			return fmt.Sprintf("ocsp.ParseResponse => %v", err)
+			return fmt.Sprintf("%s => %v", parseFuncName, err)
 		}
 	}
 
@@ -99,7 +107,7 @@ func Ocsp_check(b64_cert string, b64_issuer string) string {
 		return fmt.Sprintf("ocsp.CreateRequest => %v", err)
 	}
 
-	return do_ocsp(ocsp_req, cert.OCSPServer[0], issuer)
+	return do_ocsp(ocsp_req, cert.OCSPServer[0], cert, issuer)
 }
 
 func Ocsp_randomserial_check(b64_issuer string, ocsp_url string) string {
@@ -144,5 +152,5 @@ func Ocsp_randomserial_check(b64_issuer string, ocsp_url string) string {
 		return fmt.Sprintf("ocsp_req.Marshal => %v", err)
 	}
 
-	return do_ocsp(ocsp_req_bytes, ocsp_url, issuer)
+	return do_ocsp(ocsp_req_bytes, ocsp_url, nil, issuer)
 }
