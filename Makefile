@@ -1,7 +1,5 @@
-export GOPATH=/home/rob/go
-
 libocsppq.so:
-	$(GOPATH)/bin/plgo .
+	plgo .
 
 clean:
 	rm -rf build
